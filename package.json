@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --configLoader runner",
     "build": "vite build --configLoader runner",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postinstall": "node scripts/postinstall-compute-sdk.mjs"
   },
   "dependencies": {
     "@0gfoundation/0g-compute-ts-sdk": "^0.8.2",
