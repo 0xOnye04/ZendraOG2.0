@@ -16,6 +16,7 @@ import {
   saveOgComputeConfig,
 } from "./services/ogCompute.ts";
 import {
+  getBrowserOgStorageSupportIssue,
   storeAiChatHistory,
   storeAiContextMemory,
   storeStrategyMemory,
@@ -556,6 +557,11 @@ async function saveChatHistoryTo0G() {
 }
 
 async function requireStorageSigner() {
+  const browserStorageIssue = getBrowserOgStorageSupportIssue();
+  if (browserStorageIssue) {
+    throw new Error(browserStorageIssue);
+  }
+
   if (!state.signer || !state.walletAddress) {
     throw new Error("Connect a trader wallet before storing mentor data on 0G.");
   }

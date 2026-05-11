@@ -4,6 +4,22 @@ function normalizeStorageError(error) {
   return error?.shortMessage || error?.reason || error?.message || "0G storage failed.";
 }
 
+export function getBrowserOgStorageSupportIssue() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const { protocol, hostname } = window.location;
+  const isHttpsPage = protocol === "https:";
+  const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
+
+  if (!isHttpsPage || isLocalhost) {
+    return null;
+  }
+
+  return "0G Storage uploads are currently unavailable from this HTTPS deployment because the Galileo storage network still resolves browser uploads through insecure HTTP node endpoints. Use local development for uploads or move the upload step behind a secure backend/proxy.";
+}
+
 async function storeJsonOn0G({ payload, indexerRpc, evmRpc, signer }) {
   if (!indexerRpc) {
     throw new Error("Missing 0G indexer RPC.");
@@ -13,6 +29,11 @@ async function storeJsonOn0G({ payload, indexerRpc, evmRpc, signer }) {
   }
   if (!signer) {
     throw new Error("Missing wallet signer for 0G storage.");
+  }
+
+  const browserSupportIssue = getBrowserOgStorageSupportIssue();
+  if (browserSupportIssue) {
+    throw new Error(browserSupportIssue);
   }
 
   const signerAddress = await signer.getAddress();

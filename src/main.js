@@ -1,7 +1,7 @@
 import "./style.css";
 import { BrowserProvider, Contract, JsonRpcProvider, formatEther, formatUnits, parseEther, parseUnits } from "ethers";
 import { Connection, PublicKey, clusterApiUrl } from "https://esm.sh/@solana/web3.js@1.98.2";
-import { storeDashboardSnapshot, storeWalletAnalysisResults } from "./zgStorage.js";
+import { getBrowserOgStorageSupportIssue, storeDashboardSnapshot, storeWalletAnalysisResults } from "./zgStorage.js";
 
 const ERC20_ABI = [
   "function balanceOf(address owner) view returns (uint256)",
@@ -436,6 +436,10 @@ function renderStoredOgData() {
 
 function getOgBackupReadinessIssues() {
   const issues = [];
+  const browserStorageIssue = getBrowserOgStorageSupportIssue();
+  if (browserStorageIssue) {
+    issues.push(browserStorageIssue);
+  }
   if (!CONFIG.ogIndexerRpc) {
     issues.push("Missing 0G indexer RPC");
   }
