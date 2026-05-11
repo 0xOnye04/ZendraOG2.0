@@ -5,19 +5,58 @@ function normalizeStorageError(error) {
 }
 
 export function getBrowserOgStorageSupportIssue() {
+  return null;
+}
+
+function shouldProxyStorageNodeUrl(url) {
   if (typeof window === "undefined") {
-    return null;
+    return false;
   }
 
-  const { protocol, hostname } = window.location;
+  const { protocol, hostname, origin } = window.location;
   const isHttpsPage = protocol === "https:";
   const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
 
-  if (!isHttpsPage || isLocalhost) {
-    return null;
+  if (!isHttpsPage || isLocalhost || !url) {
+    return false;
   }
 
-  return "0G Storage uploads are currently unavailable from this HTTPS deployment because the Galileo storage network still resolves browser uploads through insecure HTTP node endpoints. Use local development for uploads or move the upload step behind a secure backend/proxy.";
+  try {
+    const parsed = new URL(url, origin);
+    return parsed.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+function toBrowserSafeStorageNodeUrl(url) {
+  if (!shouldProxyStorageNodeUrl(url)) {
+    return url;
+  }
+
+  const target = encodeURIComponent(url);
+  return `${window.location.origin}/api/og-storage-node?target=${target}`;
+}
+
+function patchIndexerNodeTransport(indexer) {
+  if (!indexer || typeof indexer.selectNodes !== "function") {
+    return indexer;
+  }
+
+  const originalSelectNodes = indexer.selectNodes.bind(indexer);
+  indexer.selectNodes = async (...args) => {
+    const [clients, error] = await originalSelectNodes(...args);
+    if (Array.isArray(clients)) {
+      clients.forEach((client) => {
+        if (client?.url) {
+          client.url = toBrowserSafeStorageNodeUrl(client.url);
+        }
+      });
+    }
+    return [clients, error];
+  };
+
+  return indexer;
 }
 
 async function storeJsonOn0G({ payload, indexerRpc, evmRpc, signer }) {
@@ -29,11 +68,6 @@ async function storeJsonOn0G({ payload, indexerRpc, evmRpc, signer }) {
   }
   if (!signer) {
     throw new Error("Missing wallet signer for 0G storage.");
-  }
-
-  const browserSupportIssue = getBrowserOgStorageSupportIssue();
-  if (browserSupportIssue) {
-    throw new Error(browserSupportIssue);
   }
 
   const signerAddress = await signer.getAddress();
@@ -55,7 +89,7 @@ async function storeJsonOn0G({ payload, indexerRpc, evmRpc, signer }) {
     throw new Error(normalizeStorageError(treeError));
   }
 
-  const indexer = new Indexer(indexerRpc);
+  const indexer = patchIndexerNodeTransport(new Indexer(indexerRpc));
   let uploadResult;
   let uploadError;
 
