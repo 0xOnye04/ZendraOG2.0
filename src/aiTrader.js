@@ -27,6 +27,46 @@ import {
 const OG_TESTNET_CHAIN_IDS = new Set([16601, 16602]);
 const OG_INDEXER_RPC_KEY = "zendra_ogIndexerRpc";
 const OG_EVM_RPC_KEY = "zendra_ogEvmRpc";
+const AI_MENTOR_ONBOARDING_KEY = "zendra_ai_mentor_onboarding_seen_v1";
+
+const ONBOARDING_STEPS = [
+  {
+    title: "Meet Your AI Trading Mentor",
+    description: "Use the mentor like a thoughtful trading copilot. Ask normal questions, explore setups, and get coaching before acting.",
+    points: [
+      "Ask about market direction, risk, entries, invalidation, or psychology.",
+      "Use quick prompts if you do not know how to start.",
+      "Treat it like guidance, not guaranteed signals.",
+    ],
+  },
+  {
+    title: "What The AI Can Help With",
+    description: "The mentor is most useful when you want structured thinking instead of random opinions.",
+    points: [
+      "Analyze trends and explain what matters now.",
+      "Turn rough trade ideas into cleaner swing plans.",
+      "Improve discipline, sizing, and stop-loss logic.",
+    ],
+  },
+  {
+    title: "How Memory Works",
+    description: "You can save preferences, strategy notes, and journal lessons so the mentor becomes more personalized over time.",
+    points: [
+      "User Preferences shape the type of guidance you get.",
+      "Trading Strategy stores the playbook you want refined.",
+      "Trade Journal stores lessons, mistakes, and behavior patterns.",
+    ],
+  },
+  {
+    title: "Quick Start",
+    description: "Best first move: connect your wallet if you want storage, then try one of the suggested prompts.",
+    points: [
+      "Start with Analyze BTC Trend or Create Swing Plan.",
+      "Save memory only when you want persistence on 0G Storage.",
+      "Come back to this guide anytime from the sidebar.",
+    ],
+  },
+];
 
 const state = {
   messages: [],
@@ -46,6 +86,7 @@ const state = {
   latestAnalysis: "",
   latestReadiness: null,
   readinessRequestId: 0,
+  onboardingStep: 0,
 };
 
 const discoveredEvmWallets = new Map();
@@ -59,6 +100,11 @@ const elements = {
   mentorChatMessages: document.getElementById("mentorChatMessages"),
   mentorTrackedContext: document.getElementById("mentorTrackedContext"),
   mentorIdentityOutput: document.getElementById("mentorIdentityOutput"),
+  mentorOnboardingModal: document.getElementById("mentorOnboardingModal"),
+  mentorOnboardingTitle: document.getElementById("mentorOnboardingTitle"),
+  mentorOnboardingDescription: document.getElementById("mentorOnboardingDescription"),
+  mentorOnboardingPoints: document.getElementById("mentorOnboardingPoints"),
+  mentorOnboardingNextButton: document.getElementById("mentorOnboardingNextButton"),
   mentorMemoryInput: document.getElementById("mentorMemoryInput"),
   mentorStrategyInput: document.getElementById("mentorStrategyInput"),
   mentorJournalInput: document.getElementById("mentorJournalInput"),
@@ -78,6 +124,10 @@ window.saveMentorSettings = () => saveMentorSettings();
 window.sendMentorPrompt = () => sendMentorPrompt();
 window.usePromptChip = (prompt) => usePromptChip(prompt);
 window.clearMentorChat = () => clearMentorChat();
+window.openMentorOnboarding = () => openMentorOnboarding();
+window.closeMentorOnboarding = () => closeMentorOnboarding();
+window.nextMentorOnboardingStep = () => nextMentorOnboardingStep();
+window.prevMentorOnboardingStep = () => prevMentorOnboardingStep();
 window.savePreferencesTo0G = () => savePreferencesTo0G();
 window.saveStrategyTo0G = () => saveStrategyTo0G();
 window.saveJournalTo0G = () => saveJournalTo0G();
@@ -98,6 +148,7 @@ function bootstrap() {
   renderIdentityPanel();
   renderMentorReadiness();
   updateWalletStatus();
+  maybeOpenOnboarding();
   refreshProviders().catch((error) => {
     console.error(error);
     setMentorStatus(normalizeError(error, "Unable to load 0G providers right now."), "error");
@@ -323,8 +374,6 @@ async function sendMentorPrompt() {
   state.activeStreamController = controller;
 
   try {
-    // The mentor always receives the latest local memory plus tracked-wallet
-    // context so responses can stay personalized across sessions.
     const messages = buildAiMentorMessages({
       messages: state.messages.slice(0, -1).map((entry) => ({ role: entry.role, content: entry.content })),
       memory: state.memory,
@@ -379,8 +428,6 @@ async function persistMentorArtifacts({ usage, model, endpoint, assistantText, p
     return;
   }
 
-  // We keep local memory for fast retrieval and push the latest mentor state to
-  // 0G Storage as an auditable backup whenever the user has a funded testnet wallet.
   const config = getStorageConfig();
 
   await Promise.allSettled([
@@ -533,7 +580,17 @@ function renderTrackedContext() {
 
 function renderMessages() {
   if (!state.messages.length) {
-    elements.mentorChatMessages.innerHTML = "<p>No mentor chat yet. Ask for a plan, a risk review, or coaching on your trading style.</p>";
+    elements.mentorChatMessages.innerHTML = `
+      <div class="ai-empty-state">
+        <h3>Start Your First Conversation</h3>
+        <p>Ask about market trends, build a swing plan, improve trading discipline, or explore risk before entering a position.</p>
+        <div class="ai-empty-state-actions">
+          <button type="button" onclick="usePromptChip('Analyze BTC trend and tell me what matters most before I look for an entry.')">Analyze BTC Trend</button>
+          <button type="button" onclick="usePromptChip('Create a swing trade plan for me with entry ideas, invalidation, and what to watch next.')">Create Swing Plan</button>
+          <button type="button" onclick="openMentorOnboarding()">Open Onboarding</button>
+        </div>
+      </div>
+    `;
     return;
   }
 
@@ -600,25 +657,25 @@ async function assessMentorReadiness() {
 
   if (!state.providerCatalog.length) {
     warnings.push("No provider list loaded yet. Click Refresh Providers so the mentor can choose a healthy 0G chatbot provider.");
-    } else {
-      try {
-        resolvedProvider = await resolveOgChatProvider({
-          signer: state.signer || undefined,
-          preferredProviderAddress: preferredProvider || undefined,
-        });
-        lines.push(`Provider ready: ${resolvedProvider.providerAddress}`);
-        lines.push(`Provider health: ${resolvedProvider.service?.healthMetrics?.status || "unknown"}`);
-        lines.push(`Provider endpoint: ${resolvedProvider.endpoint}`);
-        lines.push(`Provider model: ${resolvedProvider.model || "metadata unavailable"}`);
-        if (config.model && resolvedProvider.model && config.model !== resolvedProvider.model) {
-          warnings.push(
-            `Configured model override ${config.model} does not match this provider. The mentor will use ${resolvedProvider.model} instead.`,
-          );
-        }
-      } catch (error) {
-        issues.push(normalizeError(error, "Unable to resolve a 0G chatbot provider."));
+  } else {
+    try {
+      resolvedProvider = await resolveOgChatProvider({
+        signer: state.signer || undefined,
+        preferredProviderAddress: preferredProvider || undefined,
+      });
+      lines.push(`Provider ready: ${resolvedProvider.providerAddress}`);
+      lines.push(`Provider health: ${resolvedProvider.service?.healthMetrics?.status || "unknown"}`);
+      lines.push(`Provider endpoint: ${resolvedProvider.endpoint}`);
+      lines.push(`Provider model: ${resolvedProvider.model || "metadata unavailable"}`);
+      if (config.model && resolvedProvider.model && config.model !== resolvedProvider.model) {
+        warnings.push(
+          `Configured model override ${config.model} does not match this provider. The mentor will use ${resolvedProvider.model} instead.`,
+        );
       }
+    } catch (error) {
+      issues.push(normalizeError(error, "Unable to resolve a 0G chatbot provider."));
     }
+  }
 
   if (preferredProvider && resolvedProvider && preferredProvider.toLowerCase() !== resolvedProvider.providerAddress.toLowerCase()) {
     warnings.push("The preferred provider was not selected. Check the address or refresh provider metadata.");
@@ -795,6 +852,51 @@ function renderIdentityPanel() {
 function usePromptChip(prompt) {
   elements.mentorPromptInput.value = prompt;
   elements.mentorPromptInput.focus();
+}
+
+function maybeOpenOnboarding() {
+  const hasSeenOnboarding = window.localStorage.getItem(AI_MENTOR_ONBOARDING_KEY) === "true";
+  if (!hasSeenOnboarding) {
+    openMentorOnboarding();
+  }
+}
+
+function openMentorOnboarding() {
+  state.onboardingStep = 0;
+  renderOnboardingStep();
+  elements.mentorOnboardingModal.classList.remove("hidden");
+}
+
+function closeMentorOnboarding() {
+  elements.mentorOnboardingModal.classList.add("hidden");
+  window.localStorage.setItem(AI_MENTOR_ONBOARDING_KEY, "true");
+}
+
+function nextMentorOnboardingStep() {
+  if (state.onboardingStep >= ONBOARDING_STEPS.length - 1) {
+    closeMentorOnboarding();
+    return;
+  }
+
+  state.onboardingStep += 1;
+  renderOnboardingStep();
+}
+
+function prevMentorOnboardingStep() {
+  state.onboardingStep = Math.max(0, state.onboardingStep - 1);
+  renderOnboardingStep();
+}
+
+function renderOnboardingStep() {
+  const step = ONBOARDING_STEPS[state.onboardingStep];
+  if (!step) {
+    return;
+  }
+
+  elements.mentorOnboardingTitle.textContent = step.title;
+  elements.mentorOnboardingDescription.textContent = step.description;
+  renderParagraphList(elements.mentorOnboardingPoints, step.points);
+  elements.mentorOnboardingNextButton.textContent = state.onboardingStep >= ONBOARDING_STEPS.length - 1 ? "Start Using Mentor" : "Next";
 }
 
 function clearMentorChat() {

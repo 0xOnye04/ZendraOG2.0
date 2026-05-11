@@ -20,6 +20,7 @@
         <nav class="nav-menu">
           <button type="button" onclick="goToDashboard()">Back To Dashboard</button>
           <button type="button" onclick="connectTraderWallet()">Connect Trader Wallet</button>
+          <button type="button" onclick="openMentorOnboarding()">How It Works</button>
           <button type="button" onclick="savePreferencesTo0G()">Save Preferences</button>
           <button type="button" onclick="saveStrategyTo0G()">Save Strategy</button>
           <button type="button" onclick="saveJournalTo0G()">Save Journal</button>
@@ -58,12 +59,64 @@
           </div>
         </header>
 
+        <section class="card ai-how-card">
+          <div class="card-heading">
+            <h3>How It Works</h3>
+            <button type="button" class="ghost-button" onclick="openMentorOnboarding()">Open Guide</button>
+          </div>
+          <div class="ai-how-grid">
+            <article class="ai-how-step">
+              <span>1</span>
+              <h4>Ask the AI</h4>
+              <p>Ask for market reads, trade plans, discipline coaching, or help refining entries, exits, and risk.</p>
+            </article>
+            <article class="ai-how-step">
+              <span>2</span>
+              <h4>Get guidance</h4>
+              <p>The mentor replies conversationally, explains trade-offs, and asks follow-up questions when your setup is unclear.</p>
+            </article>
+            <article class="ai-how-step">
+              <span>3</span>
+              <h4>Save what matters</h4>
+              <p>Store preferences, strategies, journals, and chat history so the mentor can stay more personalized over time.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="ai-capability-grid">
+          <article class="card ai-capability-card">
+            <h3>Market Analysis</h3>
+            <p>Break down trends, wallet context, asset concentration, and what the market might be pricing in.</p>
+          </article>
+          <article class="card ai-capability-card">
+            <h3>Strategy Building</h3>
+            <p>Turn rough ideas into structured swing plans, low-risk setups, and repeatable routines.</p>
+          </article>
+          <article class="card ai-capability-card">
+            <h3>Risk Management</h3>
+            <p>Ask about stop-loss logic, sizing discipline, invalidation, and how to avoid overtrading.</p>
+          </article>
+          <article class="card ai-capability-card">
+            <h3>Trading Psychology</h3>
+            <p>Use the mentor to work through impatience, revenge trades, hesitation, and consistency problems.</p>
+          </article>
+          <article class="card ai-capability-card">
+            <h3>Persistent AI Memory</h3>
+            <p>Save your strategy style, preferences, and lessons so the mentor can guide you with more context later.</p>
+          </article>
+        </section>
+
         <section class="ai-grid">
           <section class="card ai-chat-card">
             <div class="card-heading">
               <h3>Mentor Chat</h3>
             </div>
             <div class="ai-quick-prompts">
+              <button type="button" onclick="usePromptChip('Analyze BTC trend and tell me what matters most before I look for an entry.')">Analyze BTC Trend</button>
+              <button type="button" onclick="usePromptChip('Create a swing trade plan for me with entry ideas, invalidation, and what to watch next.')">Create Swing Plan</button>
+              <button type="button" onclick="usePromptChip('Help me improve my trading discipline and identify where my habits are hurting my results.')">Improve Discipline</button>
+              <button type="button" onclick="usePromptChip('Build me a low-risk crypto trading strategy I can follow consistently.')">Build Low-Risk Strategy</button>
+              <button type="button" onclick="usePromptChip('Explain stop-loss strategy in simple terms and when I should move a stop.')">Explain Stop-Loss</button>
               <button type="button" onclick="usePromptChip('Help me think through a trade idea step by step before I do anything.')">Trade Review</button>
               <button type="button" onclick="usePromptChip('Ask me the right questions to build a trading plan for today.')">Build Plan</button>
               <button type="button" onclick="usePromptChip('Explain what risk I might be missing in this setup.')">Risk Check</button>
@@ -93,6 +146,10 @@
             <section class="card ai-memory-card">
               <div class="card-heading">
                 <h3>Mentor Memory</h3>
+              </div>
+              <div class="ai-memory-note">
+                <p>The mentor can remember your saved strategy, your trading preferences, and the lessons you keep in your journal.</p>
+                <p>Use this area to shape personalized guidance over time, then save what matters to 0G Storage when you want persistence.</p>
               </div>
               <label class="ai-form-label">
                 User Preferences
@@ -124,10 +181,32 @@
               <div id="mentorProviderOutput" class="smart-list">
                 <p>No provider metadata loaded yet.</p>
               </div>
+              <div class="ai-safety-notice">
+                <strong>Guidance only.</strong>
+                <p>This mentor provides educational trading guidance and planning support. It does not guarantee profits or replace your own judgment.</p>
+              </div>
             </section>
           </section>
         </section>
       </main>
+    </div>
+
+    <div id="mentorOnboardingModal" class="ai-onboarding-overlay hidden">
+      <div class="ai-onboarding-modal">
+        <div class="ai-onboarding-head">
+          <p class="ai-onboarding-kicker">Welcome</p>
+          <h2 id="mentorOnboardingTitle">Meet Your AI Trading Mentor</h2>
+          <button type="button" class="ghost-button" onclick="closeMentorOnboarding()">Close</button>
+        </div>
+        <div class="ai-onboarding-body">
+          <p id="mentorOnboardingDescription">Ask trading questions, get structured guidance, and save what matters so the mentor becomes more useful over time.</p>
+          <div id="mentorOnboardingPoints" class="smart-list ai-onboarding-points"></div>
+        </div>
+        <div class="ai-onboarding-actions">
+          <button type="button" onclick="prevMentorOnboardingStep()">Back</button>
+          <button type="button" class="primary-pill" id="mentorOnboardingNextButton" onclick="nextMentorOnboardingStep()">Next</button>
+        </div>
+      </div>
     </div>
 
     <script type="module" src="src/aiTrader.js"></script>

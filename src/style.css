@@ -179,6 +179,7 @@ body {
   background: radial-gradient(circle at top left, rgba(0, 196, 255, 0.18), transparent 22%),
               radial-gradient(circle at bottom right, rgba(123, 97, 255, 0.14), transparent 26%),
               #050816;
+  overflow-x: hidden;
 }
 
 button,
@@ -187,10 +188,20 @@ select {
   font: inherit;
 }
 
+img,
+svg,
+canvas,
+iframe,
+video {
+  display: block;
+  max-width: 100%;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 260px 1fr;
   min-height: 100vh;
+  width: 100%;
 }
 
 .sidebar {
@@ -252,6 +263,7 @@ select {
 
 .main {
   padding: 28px 36px;
+  min-width: 0;
 }
 
 .topbar {
@@ -426,6 +438,7 @@ select {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 24px;
+  min-width: 0;
 }
 
 .card {
@@ -456,6 +469,7 @@ select {
   height: calc(100% - 56px);
   border-radius: 24px;
   overflow: hidden;
+  min-height: 320px;
 }
 
 .portfolio-list,
@@ -520,6 +534,13 @@ select {
   gap: 20px;
 }
 
+.content-grid > *,
+.side-cards > *,
+.ai-grid > *,
+.ai-side-column > * {
+  min-width: 0;
+}
+
 @media (max-width: 1240px) {
   .summary-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -527,6 +548,10 @@ select {
 
   .content-grid {
     grid-template-columns: 1fr;
+  }
+
+  .main {
+    padding: 24px;
   }
 }
 
@@ -548,6 +573,23 @@ select {
 
   .wallet-tracker {
     grid-template-columns: 1fr;
+  }
+
+  .summary-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar-actions {
+    width: 100%;
+  }
+
+  .topbar-actions button,
+  .wallet-status {
+    width: 100%;
+  }
+
+  .chart-frame {
+    min-height: 260px;
   }
 }
 
@@ -593,6 +635,7 @@ select {
 .ai-main {
   display: grid;
   gap: 24px;
+  min-width: 0;
 }
 
 .ai-topbar {
@@ -603,6 +646,18 @@ select {
   color: #94a3b8;
   max-width: 860px;
   line-height: 1.6;
+}
+
+.ghost-button {
+  margin-top: 0;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #dbe7ff;
+}
+
+.ghost-button:hover {
+  opacity: 1;
+  background: rgba(255,255,255,0.08);
 }
 
 .primary-pill {
@@ -619,6 +674,56 @@ select {
   display: grid;
   grid-template-columns: 1.15fr 1.35fr;
   gap: 24px;
+}
+
+.ai-how-card {
+  display: grid;
+  gap: 18px;
+}
+
+.ai-how-grid,
+.ai-capability-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.ai-capability-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.ai-how-step,
+.ai-capability-card {
+  position: relative;
+  padding: 20px;
+  border-radius: 22px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.ai-how-step span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  margin-bottom: 14px;
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.22), rgba(123, 85, 255, 0.22));
+  color: #f8fafc;
+  font-weight: 700;
+}
+
+.ai-how-step h4,
+.ai-capability-card h3 {
+  margin-bottom: 10px;
+}
+
+.ai-how-step p,
+.ai-capability-card p,
+.ai-memory-note p,
+.ai-safety-notice p {
+  color: #cbd5e1;
+  line-height: 1.6;
 }
 
 .ai-side-column {
@@ -714,6 +819,21 @@ select {
   margin-bottom: 16px;
 }
 
+.ai-memory-note,
+.ai-safety-notice {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.ai-safety-notice strong {
+  color: #f8fafc;
+}
+
 .ai-readiness-output {
   margin-bottom: 16px;
 }
@@ -755,6 +875,92 @@ select {
   resize: vertical;
 }
 
+.ai-empty-state {
+  display: grid;
+  gap: 14px;
+  padding: 26px;
+  border-radius: 24px;
+  border: 1px dashed rgba(255,255,255,0.18);
+  background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(0, 212, 255, 0.06));
+}
+
+.ai-empty-state h3 {
+  font-size: 1.12rem;
+}
+
+.ai-empty-state p {
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.ai-empty-state-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ai-onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(2, 6, 23, 0.74);
+  backdrop-filter: blur(12px);
+  z-index: 40;
+}
+
+.ai-onboarding-modal {
+  width: min(760px, 100%);
+  display: grid;
+  gap: 20px;
+  padding: 28px;
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(8, 15, 35, 0.98), rgba(5, 8, 22, 0.98));
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 28px 90px rgba(0,0,0,0.35);
+}
+
+.ai-onboarding-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.ai-onboarding-kicker {
+  color: #8ae3ff;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  margin-bottom: 10px;
+}
+
+.ai-onboarding-head h2 {
+  font-size: 2rem;
+  line-height: 1.15;
+}
+
+.ai-onboarding-body {
+  display: grid;
+  gap: 16px;
+}
+
+.ai-onboarding-body > p {
+  color: #cbd5e1;
+  line-height: 1.7;
+}
+
+.ai-onboarding-points p {
+  padding: 18px;
+}
+
+.ai-onboarding-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 @media (max-width: 1100px) {
   .ai-page-shell {
     grid-template-columns: 1fr;
@@ -762,5 +968,76 @@ select {
 
   .ai-grid {
     grid-template-columns: 1fr;
+  }
+
+  .ai-how-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-capability-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ai-sidebar {
+    height: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .sidebar,
+  .ai-sidebar {
+    padding: 20px 16px;
+  }
+
+  .main,
+  .ai-main {
+    padding: 16px;
+  }
+
+  .card {
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .ai-composer-actions {
+    flex-direction: column;
+  }
+
+  .ai-composer-actions button,
+  .ai-chat-ask-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .ai-empty-state-actions,
+  .ai-onboarding-actions {
+    flex-direction: column;
+  }
+
+  .ai-chat-message {
+    max-width: 100%;
+  }
+
+  .ai-capability-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-onboarding-modal {
+    padding: 22px;
+    border-radius: 24px;
+  }
+
+  .ai-onboarding-head {
+    flex-direction: column;
+  }
+
+  .ai-onboarding-head h2 {
+    font-size: 1.6rem;
+  }
+
+  .wallet-menu {
+    left: 0;
+    right: 0;
+    min-width: 0;
   }
 }
