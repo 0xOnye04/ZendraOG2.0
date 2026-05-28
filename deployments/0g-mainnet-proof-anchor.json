@@ -1,0 +1,17 @@
+{
+  "project": "ZendraOG",
+  "purpose": "0G APAC Hackathon mainnet proof anchor",
+  "network": "0G Mainnet",
+  "chainId": 16661,
+  "rpcUrl": "https://evmrpc.0g.ai",
+  "deployer": "0xf325c997948BD684fd07A675dF7D4C836A9e65EB",
+  "contractAddress": "0xC3412374BEf9Ea5De79022454c1802A5a58fB2B3",
+  "transactionHash": "0x632c62504b931cf03d663f3aa5f983106c89086f295866f5908fafcab6950411",
+  "contractExplorer": "https://chainscan.0g.ai/address/0xC3412374BEf9Ea5De79022454c1802A5a58fB2B3",
+  "transactionExplorer": "https://chainscan.0g.ai/tx/0x632c62504b931cf03d663f3aa5f983106c89086f295866f5908fafcab6950411",
+  "componentsUsed": [
+    "0G Storage",
+    "0G Compute"
+  ],
+  "deployedAt": "2026-05-28T16:22:27.287Z"
+}

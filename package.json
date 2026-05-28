@@ -7,6 +7,7 @@
     "dev": "vite --configLoader runner",
     "build": "vite build --configLoader runner",
     "preview": "vite preview",
+    "deploy:0g-mainnet-proof": "node scripts/deploy-mainnet-proof-anchor.mjs",
     "postinstall": "node scripts/postinstall-compute-sdk.mjs"
   },
   "dependencies": {

@@ -118,19 +118,19 @@ const EVM_CHAIN_PARAMS = {
     rpcUrls: ["https://bsc-rpc.publicnode.com"],
     blockExplorerUrls: ["https://bscscan.com"],
   },
-  16602: {
-    chainId: "0x40DA",
-    chainName: "0G Galileo Testnet",
-    nativeCurrency: { name: "OG", symbol: "OG", decimals: 18 },
-    rpcUrls: ["https://evmrpc-testnet.0g.ai"],
-    blockExplorerUrls: ["https://chainscan-galileo.0g.ai"],
+  16661: {
+    chainId: "0x4115",
+    chainName: "0G Mainnet",
+    nativeCurrency: { name: "0G", symbol: "0G", decimals: 18 },
+    rpcUrls: ["https://evmrpc.0g.ai"],
+    blockExplorerUrls: ["https://chainscan.0g.ai"],
   },
 };
 
 const DEFAULT_PRICE_COINS = ["bitcoin", "ethereum", "binancecoin", "solana", "arbitrum", "pepe", "dogecoin"];
 const MEME_KEYWORDS = ["pepe", "doge", "shib", "inu", "cat", "frog", "meme", "floki", "bonk", "wojak"];
-const OG_TESTNET_CHAIN_ID = 16602;
-const OG_COMPATIBLE_TESTNET_CHAIN_IDS = new Set([16601, 16602]);
+const OG_MAINNET_CHAIN_ID = 16661;
+const OG_COMPATIBLE_MAINNET_CHAIN_IDS = new Set([OG_MAINNET_CHAIN_ID]);
 const CONFIG = {
   covalentApiKey: readRuntimeConfig("covalentApiKey"),
   coingeckoDemoApiKey: readRuntimeConfig("coingeckoDemoApiKey"),
@@ -246,6 +246,16 @@ async function bootstrap() {
 }
 
 function readRuntimeConfig(key) {
+  if (key === "ogEvmRpc") {
+    window.localStorage.removeItem("zendra_ogEvmRpc");
+    return "https://evmrpc.0g.ai";
+  }
+
+  if (key === "ogIndexerRpc") {
+    window.localStorage.removeItem("zendra_ogIndexerRpc");
+    return "https://indexer-storage-turbo.0g.ai";
+  }
+
   const runtime = window.ZENDRA_CONFIG || {};
   const envKey = `VITE_${camelToEnvKey(key)}`;
   const envValue = import.meta.env?.[envKey];
@@ -256,11 +266,11 @@ function readRuntimeConfig(key) {
 
 function getDefaultRuntimeConfigValue(key) {
   if (key === "ogEvmRpc") {
-    return "https://evmrpc-testnet.0g.ai";
+    return "https://evmrpc.0g.ai";
   }
 
   if (key === "ogIndexerRpc") {
-    return "https://indexer-storage-testnet-turbo.0g.ai";
+    return "https://indexer-storage-turbo.0g.ai";
   }
 
   return "";
@@ -736,7 +746,14 @@ function bindWalletListeners(walletDef) {
       await setConnectedEvmWallet(accounts[0], walletDef);
     };
     connectedWalletListeners.chainChanged = async (hexChainId) => {
-      state.walletChainId = Number.parseInt(hexChainId, 16);
+      const chainId = parseChainId(hexChainId);
+      if (!OG_COMPATIBLE_MAINNET_CHAIN_IDS.has(chainId)) {
+        setSwapStatus("Wrong 0G network detected. Switching to 0G Mainnet...");
+        await ensureEvmProviderOnOgMainnet(walletDef.provider);
+      }
+      state.walletChainId = await readInjectedChainId(walletDef.provider);
+      state.provider = new BrowserProvider(walletDef.provider);
+      state.signer = await state.provider.getSigner();
       updateWalletStatus();
       const chain = getChainKeyByChainId(state.walletChainId);
       if (state.walletAddress && chain) {
@@ -831,6 +848,10 @@ async function selectAndConnectWallet(walletKey) {
     window.localStorage.setItem(WALLET_PREFERENCE_KEY, walletDef.key);
     window.localStorage.setItem(WALLET_AUTOCONNECT_KEY, "true");
 
+    if (walletDef.kind === "evm") {
+      await ensureEvmProviderOnOgMainnet(walletDef.provider);
+    }
+
     const accounts = await requestWalletAccounts(walletDef.provider);
     if (!accounts.length) {
       throw new Error(`${walletDef.label} did not return an account.`);
@@ -869,14 +890,14 @@ async function disconnectWallet() {
 }
 
 async function setConnectedEvmWallet(address, walletDef) {
+  await ensureEvmProviderOnOgMainnet(walletDef.provider);
   state.rawEvmProvider = walletDef.provider;
   state.provider = new BrowserProvider(walletDef.provider);
   state.signer = await state.provider.getSigner();
   state.walletAddress = address;
   state.connectedWalletKey = walletDef.key;
   state.connectedWalletLabel = walletDef.label;
-  const network = await state.provider.getNetwork();
-  state.walletChainId = Number(network.chainId);
+  state.walletChainId = await readInjectedChainId(walletDef.provider);
   const chainKey = getChainKeyByChainId(state.walletChainId);
   if (chainKey && elements.swapChain) {
     elements.swapChain.value = chainKey;
@@ -1729,16 +1750,16 @@ async function ensureOgStorageSigner() {
 
   await refreshConnectedEvmNetworkState();
 
-  if (!OG_COMPATIBLE_TESTNET_CHAIN_IDS.has(state.walletChainId)) {
-    setSwapStatus("Switching wallet to 0G Galileo Testnet for 0G storage...");
-    const switched = await switchToChain(OG_TESTNET_CHAIN_ID);
+  if (!OG_COMPATIBLE_MAINNET_CHAIN_IDS.has(state.walletChainId)) {
+    setSwapStatus("Switching wallet to 0G Mainnet for 0G storage...");
+    const switched = await switchToChain(OG_MAINNET_CHAIN_ID);
     if (!switched) {
-      throw new Error("Switch to 0G Galileo Testnet was not completed.");
+      throw new Error("Switch to 0G Mainnet was not completed.");
     }
   }
 
   if (!state.signer) {
-    throw new Error("Wallet signer is unavailable after switching to 0G Galileo Testnet.");
+    throw new Error("Wallet signer is unavailable after switching to 0G Mainnet.");
   }
 
   return state.signer;
@@ -1749,9 +1770,63 @@ async function refreshConnectedEvmNetworkState() {
     return;
   }
 
-  const network = await state.provider.getNetwork();
-  state.walletChainId = Number(network.chainId);
+  state.walletChainId = state.rawEvmProvider
+    ? await readInjectedChainId(state.rawEvmProvider)
+    : Number((await state.provider.getNetwork()).chainId);
+  state.provider = state.rawEvmProvider ? new BrowserProvider(state.rawEvmProvider) : state.provider;
+  state.signer = state.rawEvmProvider ? await state.provider.getSigner() : state.signer;
   updateWalletStatus();
+}
+
+async function readInjectedChainId(provider) {
+  const chainId = await provider.request?.({ method: "eth_chainId" });
+  return parseChainId(chainId);
+}
+
+async function ensureEvmProviderOnOgMainnet(provider) {
+  const chainId = await readInjectedChainId(provider);
+  if (OG_COMPATIBLE_MAINNET_CHAIN_IDS.has(chainId)) {
+    return true;
+  }
+
+  try {
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: EVM_CHAIN_PARAMS[OG_MAINNET_CHAIN_ID].chainId }],
+    });
+  } catch (error) {
+    if (Number(error?.code) !== 4902) {
+      throw error;
+    }
+
+    await provider.request({
+      method: "wallet_addEthereumChain",
+      params: [EVM_CHAIN_PARAMS[OG_MAINNET_CHAIN_ID]],
+    });
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: EVM_CHAIN_PARAMS[OG_MAINNET_CHAIN_ID].chainId }],
+    });
+  }
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if ((await readInjectedChainId(provider)) === OG_MAINNET_CHAIN_ID) {
+      return true;
+    }
+
+    await wait(250);
+  }
+
+  throw new Error("MetaMask is still not on 0G Mainnet 16661.");
+}
+
+function parseChainId(chainId) {
+  if (typeof chainId === "number") {
+    return chainId;
+  }
+
+  const value = String(chainId || "");
+  return value.startsWith("0x") ? Number.parseInt(value, 16) : Number.parseInt(value, 10);
 }
 
 function renderActivity(lines) {
@@ -1872,13 +1947,6 @@ async function persistWalletInsightsTo0G(insights) {
     return;
   }
 
-  await refreshConnectedEvmNetworkState();
-
-  if (!OG_COMPATIBLE_TESTNET_CHAIN_IDS.has(state.walletChainId)) {
-    setOgStorageStatus("Switch wallet to 0G Galileo Testnet to store on 0G.");
-    return;
-  }
-
   const assets = state.trackedPortfolio.slice(0, 12).map((asset) => ({
     symbol: asset.symbol,
     name: asset.name,
@@ -1891,6 +1959,7 @@ async function persistWalletInsightsTo0G(insights) {
 
   try {
     setOgStorageStatus("Storing wallet analysis on 0G...", "pending");
+    const signer = await ensureOgStorageSigner();
     const { rootHash, txHash } = await storeWalletAnalysisResults({
       address: state.lastTracked.address,
       chain: state.lastTracked.chain,
@@ -1899,7 +1968,7 @@ async function persistWalletInsightsTo0G(insights) {
       insights,
       indexerRpc: CONFIG.ogIndexerRpc,
       evmRpc: CONFIG.ogEvmRpc,
-      signer: state.signer,
+      signer,
     });
 
     console.log("0G wallet analysis root hash:", rootHash);

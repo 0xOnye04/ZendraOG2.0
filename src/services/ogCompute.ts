@@ -1,4 +1,5 @@
-const DEFAULT_OG_COMPUTE_RPC_URL = "https://evmrpc-testnet.0g.ai";
+const DEFAULT_OG_COMPUTE_RPC_URL = "https://evmrpc.0g.ai";
+const OG_MAINNET_CHAIN_ID = 16661;
 const DEFAULT_OG_COMPUTE_MODEL = "";
 const DEFAULT_PROVIDER_ADDRESS = "";
 
@@ -8,6 +9,11 @@ let cachedSdkModule: any = null;
 let cachedReadOnlyBroker: any = null;
 
 function readRuntimeConfig(key: string, fallbackValue = "") {
+  if (key === "ogComputeRpcUrl") {
+    window.localStorage.removeItem("zendra_ogComputeRpcUrl");
+    return DEFAULT_OG_COMPUTE_RPC_URL;
+  }
+
   const runtime = (window as any).ZENDRA_CONFIG || {};
   const envKey = `VITE_${String(key)
     .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
@@ -35,7 +41,7 @@ export function saveOgComputeConfig({
   model?: string;
   providerAddress?: string;
 }) {
-  persistConfigValue("ogComputeRpcUrl", rpcUrl || DEFAULT_OG_COMPUTE_RPC_URL);
+  persistConfigValue("ogComputeRpcUrl", DEFAULT_OG_COMPUTE_RPC_URL);
   persistConfigValue("ogComputeModel", model || DEFAULT_OG_COMPUTE_MODEL);
   persistConfigValue("ogComputeProviderAddress", providerAddress || DEFAULT_PROVIDER_ADDRESS);
 }
@@ -77,14 +83,28 @@ export async function createOgComputeBroker(signer: any) {
     throw new Error("Connect a trader wallet before using 0G Compute Direct mode.");
   }
 
+  const network = await signer.provider?.getNetwork?.();
+  if (Number(network?.chainId || 0) !== OG_MAINNET_CHAIN_ID) {
+    throw new Error("Switch your wallet to 0G Mainnet before using 0G Compute.");
+  }
+
   const sdk = await loadComputeSdk();
   return sdk.createZGComputeNetworkBroker(signer);
 }
 
 export async function listOgComputeProviders() {
   const broker = await getReadOnlyBroker();
-  const services = await broker.inference.listServiceWithDetail(0, 50, false);
-  return services.filter((service: any) => String(service?.serviceType || "").toLowerCase() === "chatbot");
+  let services;
+
+  try {
+    services = await broker.inference.listServiceWithDetail(0, 50, false);
+  } catch {
+    services = await broker.inference.listService(0, 50, false);
+  }
+
+  return services
+    .map(normalizeComputeService)
+    .filter((service: any) => String(service?.serviceType || "").toLowerCase() === "chatbot");
 }
 
 export async function resolveOgChatProvider({
@@ -94,15 +114,36 @@ export async function resolveOgChatProvider({
   signer?: any;
   preferredProviderAddress?: string;
 }) {
-  const services = await listOgComputeProviders();
+  const preferred = String(preferredProviderAddress || getOgComputeConfig().providerAddress || "").toLowerCase();
+  let services: any[] = [];
+
+  try {
+    services = await listOgComputeProviders();
+  } catch (error) {
+    if (isAddress(preferred)) {
+      return resolveOgChatProviderByAddress({ signer, providerAddress: preferred });
+    }
+
+    throw new Error(
+      "Unable to load 0G Compute provider list. Enter a Preferred Provider address, then refresh or send again.",
+    );
+  }
+
+  if (!services.length && isAddress(preferred)) {
+    return resolveOgChatProviderByAddress({ signer, providerAddress: preferred });
+  }
+
   if (!services.length) {
     throw new Error("No 0G chatbot providers are currently available.");
   }
 
-  const preferred = String(preferredProviderAddress || getOgComputeConfig().providerAddress || "").toLowerCase();
   let selected = preferred
     ? services.find((service: any) => String(service.provider || "").toLowerCase() === preferred)
     : null;
+
+  if (!selected && isAddress(preferred)) {
+    return resolveOgChatProviderByAddress({ signer, providerAddress: preferred });
+  }
 
   if (!selected) {
     selected = services.find((service: any) => service.healthMetrics?.status === "healthy") || services[0];
@@ -118,6 +159,50 @@ export async function resolveOgChatProvider({
     model,
     service: selected,
   };
+}
+
+async function resolveOgChatProviderByAddress({
+  signer,
+  providerAddress,
+}: {
+  signer?: any;
+  providerAddress: string;
+}) {
+  const metadataBroker = signer ? await createOgComputeBroker(signer) : await getReadOnlyBroker();
+  const { endpoint, model } = await metadataBroker.inference.getServiceMetadata(providerAddress);
+
+  return {
+    providerAddress,
+    endpoint,
+    model,
+    service: {
+      provider: providerAddress,
+      serviceType: "chatbot",
+      healthMetrics: null,
+    },
+  };
+}
+
+function normalizeComputeService(service: any) {
+  return {
+    provider: service?.provider,
+    serviceType: service?.serviceType,
+    url: service?.url,
+    inputPrice: service?.inputPrice,
+    outputPrice: service?.outputPrice,
+    updatedAt: service?.updatedAt,
+    model: service?.model,
+    verifiability: service?.verifiability,
+    additionalInfo: service?.additionalInfo,
+    teeSignerAddress: service?.teeSignerAddress,
+    teeSignerAcknowledged: service?.teeSignerAcknowledged,
+    healthMetrics: service?.healthMetrics,
+    modelInfo: service?.modelInfo,
+  };
+}
+
+function isAddress(value: string) {
+  return /^0x[a-fA-F0-9]{40}$/.test(String(value || ""));
 }
 
 export async function runOgDirectChatCompletion({
@@ -190,6 +275,48 @@ export async function runOgDirectChatCompletion({
     chatId,
     verification,
   };
+}
+
+export async function fundOgComputeProvider({
+  signer,
+  providerAddress,
+  amount = 3,
+}: {
+  signer: any;
+  providerAddress: string;
+  amount?: number;
+}) {
+  if (!signer) {
+    throw new Error("Connect a trader wallet before funding 0G Compute.");
+  }
+
+  if (!providerAddress) {
+    throw new Error("Select or enter a 0G Compute provider before funding.");
+  }
+
+  const broker = await createOgComputeBroker(signer);
+  const normalizedAmount = Number(amount || 0);
+  if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+    throw new Error("Enter a valid 0G amount to fund the provider.");
+  }
+
+  if (normalizedAmount < 3) {
+    throw new Error("New 0G Compute ledgers require at least 3 0G. Use 3 or more.");
+  }
+
+  await broker.ledger.depositFund(normalizedAmount);
+  await broker.ledger.transferFund(providerAddress, "inference", toNeuron(normalizedAmount));
+
+  return {
+    providerAddress,
+    amount: normalizedAmount,
+  };
+}
+
+function toNeuron(amount: number) {
+  const [wholePart, fractionPart = ""] = String(amount).split(".");
+  const paddedFraction = `${fractionPart}000000000000000000`.slice(0, 18);
+  return BigInt(wholePart || "0") * 10n ** 18n + BigInt(paddedFraction || "0");
 }
 
 async function buildProviderError(response: Response, fallbackMessage: string) {

@@ -74,12 +74,12 @@ async function storeJsonOn0G({ payload, indexerRpc, evmRpc, signer }) {
   const signerNetwork = await signer.provider?.getNetwork?.();
   const signerBalance = await signer.provider?.getBalance?.(signerAddress);
 
-  if (![16601, 16602].includes(Number(signerNetwork?.chainId || 0))) {
-    throw new Error("Switch your wallet to 0G Galileo Testnet before storing data on 0G.");
+  if (Number(signerNetwork?.chainId || 0) !== 16661) {
+    throw new Error("Switch your wallet to 0G Mainnet before storing data on 0G.");
   }
 
   if (signerBalance === 0n) {
-    throw new Error("Your connected wallet has no OG balance on 0G Galileo Testnet. Fund it from the faucet before uploading.");
+    throw new Error("Your connected wallet has no 0G balance on 0G Mainnet. Fund it before uploading.");
   }
 
   // All storage payloads are serialized as JSON to keep the service reusable.
@@ -105,12 +105,12 @@ async function storeJsonOn0G({ payload, indexerRpc, evmRpc, signer }) {
   } catch (error) {
     if (error?.code === "BAD_DATA" && error?.info?.method === "market") {
       throw new Error(
-        "0G upload could not resolve a valid flow contract from the selected network. Please retry the upload and make sure the app is using the current Galileo testnet RPC and indexer.",
+        "0G upload could not resolve a valid flow contract from the selected network. Please retry the upload and make sure the app is using the current 0G Mainnet RPC and indexer.",
       );
     }
     if (error?.code === "CALL_EXCEPTION") {
       throw new Error(
-        "0G upload was rejected by the Galileo testnet storage contract during gas estimation. Please retry once the current flow accepts submissions.",
+        "0G upload was rejected by the 0G Mainnet storage contract during gas estimation. Please retry once the current flow accepts submissions.",
       );
     }
     throw error;
