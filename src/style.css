@@ -511,8 +511,44 @@ video {
 
 .swap-box input,
 .swap-box button,
-.swap-box select {
+.swap-box select,
+.swap-link-button,
+.swap-coming-soon {
   width: 100%;
+}
+
+.swap-coming-soon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 8px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.08);
+  color: #94a3b8;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.swap-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 12px 16px;
+  border: 1px solid rgba(56, 189, 248, 0.42);
+  border-radius: 14px;
+  background: rgba(14, 165, 233, 0.12);
+  color: #e0f2fe;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.swap-link-button:hover {
+  border-color: rgba(125, 211, 252, 0.72);
+  background: rgba(14, 165, 233, 0.2);
 }
 
 .swap-status {

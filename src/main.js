@@ -1579,7 +1579,7 @@ async function swap() {
   }
 
   if (!CONFIG.zeroExApiKey) {
-    setSwapStatus("Set `window.ZENDRA_CONFIG.zeroExApiKey` or localStorage `zendra_zeroExApiKey` to enable 0x swaps.");
+    setSwapStatus("Add VITE_ZERO_EX_API_KEY to .env.local, then restart the dev server to enable 0x swaps.");
     return;
   }
 

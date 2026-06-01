@@ -52,7 +52,6 @@
             </div>
             <button onclick="disconnectWallet()">Disconnect</button>
             <button onclick="backupOgStorageNow()">Backup OG</button>
-            <button onclick="sendEVM()">Send</button>
             <span id="walletStatus" class="wallet-status">No wallet connected</span>
           </div>
         </header>
@@ -154,7 +153,13 @@
                   <input id="swapToToken" placeholder="Buy token symbol or address (example: USDC, ETH, ARB)" />
                   <input id="swapAmount" placeholder="Enter sell amount" />
                   <input id="swapSlippage" placeholder="Slippage % (default 1)" value="1" />
-                  <button onclick="swap()">Swap Tokens</button>
+                  <span class="swap-coming-soon">Swap coming soon</span>
+                  <a
+                    class="swap-link-button"
+                    href="https://hub.0g.ai/khalani/transfer?network=mainnet"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >Get 0G Tokens</a>
                   <div id="swapStatus" class="swap-status">Connect an EVM wallet to execute swaps.</div>
                 </div>
               </div>
