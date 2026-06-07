@@ -1,17 +1,29 @@
 {
   "project": "ZendraOG",
-  "purpose": "0G APAC Hackathon mainnet proof anchor",
+  "purpose": "0G Mainnet storage proof anchor for ZendraOG user-facing storage flow",
   "network": "0G Mainnet",
   "chainId": 16661,
   "rpcUrl": "https://evmrpc.0g.ai",
-  "deployer": "0xf325c997948BD684fd07A675dF7D4C836A9e65EB",
-  "contractAddress": "0xC3412374BEf9Ea5De79022454c1802A5a58fB2B3",
-  "transactionHash": "0x632c62504b931cf03d663f3aa5f983106c89086f295866f5908fafcab6950411",
-  "contractExplorer": "https://chainscan.0g.ai/address/0xC3412374BEf9Ea5De79022454c1802A5a58fB2B3",
-  "transactionExplorer": "https://chainscan.0g.ai/tx/0x632c62504b931cf03d663f3aa5f983106c89086f295866f5908fafcab6950411",
+  "deployer": "0x6625FE0b675ab5e16e86ac3cd5043Fb25D87235C",
+  "deploymentWalletBalance": "5.074073075656172355 0G",
+  "contractAddress": "0x61c60b1A07b55a23776dDe639933Aa01A5156c55",
+  "transactionHash": "0xdd56caca93c897b16183e382540d6746241e4e19441b56bfd1dc31e54c0b0670",
+  "contractExplorer": "https://chainscan.0g.ai/address/0x61c60b1A07b55a23776dDe639933Aa01A5156c55",
+  "transactionExplorer": "https://chainscan.0g.ai/tx/0xdd56caca93c897b16183e382540d6746241e4e19441b56bfd1dc31e54c0b0670",
+  "storageFlow": {
+    "enabled": true,
+    "description": "After each successful 0G Storage upload, ZendraOG sends a metadata transaction to this contract with the storage root hash and storage transaction hash."
+  },
+  "previousProofAnchor": {
+    "contractAddress": "0xC3412374BEf9Ea5De79022454c1802A5a58fB2B3",
+    "transactionHash": "0x632c62504b931cf03d663f3aa5f983106c89086f295866f5908fafcab6950411",
+    "contractExplorer": "https://chainscan.0g.ai/address/0xC3412374BEf9Ea5De79022454c1802A5a58fB2B3",
+    "transactionExplorer": "https://chainscan.0g.ai/tx/0x632c62504b931cf03d663f3aa5f983106c89086f295866f5908fafcab6950411"
+  },
   "componentsUsed": [
+    "0G Chain",
     "0G Storage",
     "0G Compute"
   ],
-  "deployedAt": "2026-05-28T16:22:27.287Z"
+  "updatedAt": "2026-06-07T00:00:00.000Z"
 }

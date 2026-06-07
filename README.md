@@ -89,7 +89,7 @@ The app stores:
 
 How it supports the product:
 
-0G Storage turns the app from a temporary browser dashboard into a persistent intelligence workspace. Wallet scores, risk snapshots, AI mentor memory, and trading notes can be uploaded and referenced later instead of disappearing when the page reloads.
+0G Storage turns the app from a temporary browser dashboard into a persistent intelligence workspace. Wallet scores, risk snapshots, AI mentor memory, and trading notes can be uploaded and referenced later instead of disappearing when the page reloads. After each successful upload, the storage flow also sends a metadata transaction to the 0G Mainnet proof anchor contract so the uploaded root is tied to an on-chain transaction.
 
 ### 0G Compute
 
@@ -120,9 +120,27 @@ How it supports the product:
 
 ## 0G Mainnet Deployments
 
-The repository includes deployed 0G Mainnet records that can be used by judges to verify the project on-chain.
+The repository includes deployed 0G Mainnet records that can be used by judges to verify the project on-chain. The active storage proof flow uses the user-facing deployment, while the earlier proof anchor remains documented as an additional verification reference.
 
-### Repository Proof Anchor
+### Active User-Facing Storage Anchor
+
+This deployment is the user-facing 0G Mainnet contract reference for the product. ZendraOG now calls this contract after successful 0G Storage uploads to anchor the storage root and storage transaction metadata on 0G Chain.
+
+- Network: `0G Mainnet`
+- Chain ID: `16661`
+- RPC URL: `https://evmrpc.0g.ai`
+- Deployer: `0x6625FE0b675ab5e16e86ac3cd5043Fb25D87235C`
+- Deployment wallet balance at deploy time: `5.074073075656172355 0G`
+- Contract: `0x61c60b1A07b55a23776dDe639933Aa01A5156c55`
+- Transaction: `0xdd56caca93c897b16183e382540d6746241e4e19441b56bfd1dc31e54c0b0670`
+- Contract explorer: `https://chainscan.0g.ai/address/0x61c60b1A07b55a23776dDe639933Aa01A5156c55`
+- Transaction explorer: `https://chainscan.0g.ai/tx/0xdd56caca93c897b16183e382540d6746241e4e19441b56bfd1dc31e54c0b0670`
+
+The active proof metadata is stored in:
+
+- `deployments/0g-mainnet-proof-anchor.json`
+
+### Earlier Repository Proof Anchor
 
 - Network: `0G Mainnet`
 - Chain ID: `16661`
@@ -132,24 +150,6 @@ The repository includes deployed 0G Mainnet records that can be used by judges t
 - Transaction: `0x632c62504b931cf03d663f3aa5f983106c89086f295866f5908fafcab6950411`
 - Contract explorer: `https://chainscan.0g.ai/address/0xC3412374BEf9Ea5De79022454c1802A5a58fB2B3`
 - Transaction explorer: `https://chainscan.0g.ai/tx/0x632c62504b931cf03d663f3aa5f983106c89086f295866f5908fafcab6950411`
-
-The proof metadata is stored in:
-
-- `deployments/0g-mainnet-proof-anchor.json`
-
-### User-Facing Deployment
-
-This deployment is the user-facing 0G Mainnet contract reference for the product:
-
-- Network: `0G Mainnet`
-- Chain ID: `16661`
-- Deployer: `0x6625FE0b675ab5e16e86ac3cd5043Fb25D87235C`
-- Deployment wallet balance at deploy time: `5.074073075656172355 0G`
-- Contract: `0x61c60b1A07b55a23776dDe639933Aa01A5156c55`
-- Transaction: `0xdd56caca93c897b16183e382540d6746241e4e19441b56bfd1dc31e54c0b0670`
-- Contract explorer: `https://chainscan.0g.ai/address/0x61c60b1A07b55a23776dDe639933Aa01A5156c55`
-- Transaction explorer: `https://chainscan.0g.ai/tx/0xdd56caca93c897b16183e382540d6746241e4e19441b56bfd1dc31e54c0b0670`
-(`not included in deployments/0g-mainnet-proof-anchor.json`)
 
 ## Local Deployment
 
@@ -174,6 +174,7 @@ Create or update `.env.local`:
 VITE_OG_COMPUTE_RPC_URL=https://evmrpc.0g.ai
 VITE_OG_EVM_RPC=https://evmrpc.0g.ai
 VITE_OG_INDEXER_RPC=https://indexer-storage-turbo.0g.ai
+VITE_OG_PROOF_ANCHOR_CONTRACT=0x61c60b1A07b55a23776dDe639933Aa01A5156c55
 ```
 
 Optional values:
@@ -210,6 +211,41 @@ npm run build
 ```bash
 npm run preview
 ```
+
+### Publish Frontend to 0G Storage and Anchor on 0G Chain
+
+This command builds the frontend, packages the `dist` artifacts into a deterministic JSON bundle, uploads that bundle to 0G Storage, then anchors the resulting storage root and metadata in a 0G Mainnet transaction.
+
+Set the deployer private key only in your local terminal session:
+
+```bash
+# macOS / Linux
+export PRIVATE_KEY=your_0g_mainnet_private_key
+
+# Windows PowerShell
+$env:PRIVATE_KEY="your_0g_mainnet_private_key"
+```
+
+Then run:
+
+```bash
+npm run deploy:0g-frontend
+```
+
+The script writes the deployment receipt to:
+
+```text
+deployments/0g-frontend-storage-deployment.json
+```
+
+That receipt includes:
+
+- 0G Storage root hash
+- 0G Storage transaction hash when returned by the indexer
+- bundle SHA-256
+- file manifest for the published frontend build
+- 0G Chain anchor transaction hash
+- 0G Chain explorer link
 
 ## Reviewer Notes
 
@@ -271,9 +307,11 @@ The AI Trader UI surfaces these checks in its readiness, identity, provider, and
 |       |-- ogStorage.js               Browser 0G Storage integration
 |       |-- ogStorage.ts               Shared storage types/helpers
 |-- scripts/
+|   |-- deploy-frontend-to-0g-storage.mjs
 |   |-- deploy-mainnet-proof-anchor.mjs
 |   |-- postinstall-compute-sdk.mjs
 |-- deployments/
+|   |-- 0g-frontend-storage-deployment.json
 |   |-- 0g-mainnet-proof-anchor.json
 |-- package.json
 |-- vite.config.js

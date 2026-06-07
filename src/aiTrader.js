@@ -28,6 +28,7 @@ import {
 
 const OG_MAINNET_CHAIN_ID = 16661;
 const OG_MAINNET_CHAIN_IDS = new Set([OG_MAINNET_CHAIN_ID]);
+const DEFAULT_OG_PROOF_ANCHOR_CONTRACT = "0x61c60b1A07b55a23776dDe639933Aa01A5156c55";
 const OG_MAINNET_CHAIN_PARAMS = {
   chainId: "0x4115",
   chainName: "0G Mainnet",
@@ -37,6 +38,7 @@ const OG_MAINNET_CHAIN_PARAMS = {
 };
 const OG_INDEXER_RPC_KEY = "zendra_ogIndexerRpc";
 const OG_EVM_RPC_KEY = "zendra_ogEvmRpc";
+const OG_PROOF_ANCHOR_CONTRACT_KEY = "zendra_ogProofAnchorContract";
 const AI_MENTOR_ONBOARDING_KEY = "zendra_ai_mentor_onboarding_seen_v1";
 
 const ONBOARDING_STEPS = [
@@ -732,7 +734,15 @@ function getStorageConfig() {
       "https://indexer-storage-turbo.0g.ai",
     ),
     evmRpc: normalizeMainnetStorageRpc(window.localStorage.getItem(OG_EVM_RPC_KEY), "https://evmrpc.0g.ai"),
+    proofAnchorAddress: normalizeProofAnchorContract(window.localStorage.getItem(OG_PROOF_ANCHOR_CONTRACT_KEY)),
   };
+}
+
+function normalizeProofAnchorContract(value) {
+  const normalized = String(value || "").trim();
+  return /^0x[a-fA-F0-9]{40}$/.test(normalized)
+    ? normalized
+    : DEFAULT_OG_PROOF_ANCHOR_CONTRACT;
 }
 
 function normalizeMainnetStorageRpc(value, fallback) {

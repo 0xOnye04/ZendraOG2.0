@@ -131,6 +131,7 @@ const DEFAULT_PRICE_COINS = ["bitcoin", "ethereum", "binancecoin", "solana", "ar
 const MEME_KEYWORDS = ["pepe", "doge", "shib", "inu", "cat", "frog", "meme", "floki", "bonk", "wojak"];
 const OG_MAINNET_CHAIN_ID = 16661;
 const OG_COMPATIBLE_MAINNET_CHAIN_IDS = new Set([OG_MAINNET_CHAIN_ID]);
+const DEFAULT_OG_PROOF_ANCHOR_CONTRACT = "0x61c60b1A07b55a23776dDe639933Aa01A5156c55";
 const CONFIG = {
   covalentApiKey: readRuntimeConfig("covalentApiKey"),
   coingeckoDemoApiKey: readRuntimeConfig("coingeckoDemoApiKey"),
@@ -138,6 +139,7 @@ const CONFIG = {
   zeroExApiKey: readRuntimeConfig("zeroExApiKey"),
   ogIndexerRpc: readRuntimeConfig("ogIndexerRpc"),
   ogEvmRpc: readRuntimeConfig("ogEvmRpc"),
+  ogProofAnchorContract: readRuntimeConfig("ogProofAnchorContract"),
   ogAutoBackup: String(readRuntimeConfig("ogAutoBackup")).toLowerCase() === "true",
 };
 const WALLET_PREFERENCE_KEY = "zendra_wallet_preference";
@@ -271,6 +273,10 @@ function getDefaultRuntimeConfigValue(key) {
 
   if (key === "ogIndexerRpc") {
     return "https://indexer-storage-turbo.0g.ai";
+  }
+
+  if (key === "ogProofAnchorContract") {
+    return DEFAULT_OG_PROOF_ANCHOR_CONTRACT;
   }
 
   return "";
@@ -426,10 +432,11 @@ function renderStoredOgData() {
     alertLines.push(`Saved price alert: ${alert.symbol} ${alert.changeText} at ${alert.priceText}`);
   });
   if (state.ogLastBackupMeta?.timestamp) {
-    const txLabel = state.ogLastBackupMeta.txHash
-      ? state.ogLastBackupMeta.txHash.slice(0, 12)
+    const txHash = state.ogLastBackupMeta.anchorTxHash || state.ogLastBackupMeta.txHash;
+    const txLabel = txHash
+      ? txHash.slice(0, 12)
       : "pending";
-    alertLines.push(`0G store: ${formatTimestamp(state.ogLastBackupMeta.timestamp)} | tx ${txLabel}...`);
+    alertLines.push(`0G store: ${formatTimestamp(state.ogLastBackupMeta.timestamp)} | anchor ${txLabel}...`);
   }
 
   const riskLines = state.ogStorage.riskSnapshots.slice(0, 3).map((item) => (
@@ -552,17 +559,19 @@ async function backupOgStorage(reason = "auto") {
       setSwapStatus("Preparing 0G backup and requesting wallet signature...");
     }
     const signer = await ensureOgStorageSigner();
-    const { rootHash, txHash } = await storeDashboardSnapshot({
+    const { rootHash, txHash, anchorTxHash } = await storeDashboardSnapshot({
       reason,
       storage: state.ogStorage,
       indexerRpc: CONFIG.ogIndexerRpc,
       evmRpc: CONFIG.ogEvmRpc,
+      proofAnchorAddress: CONFIG.ogProofAnchorContract,
       signer,
     });
 
     state.ogLastBackupMeta = {
       timestamp: Date.now(),
       txHash,
+      anchorTxHash,
       rootHash,
       reason,
       address: state.walletAddress,
@@ -571,7 +580,7 @@ async function backupOgStorage(reason = "auto") {
     renderStoredOgData();
     renderActivity([
       `0G backup completed (${reason}).`,
-      `Tx: ${(state.ogLastBackupMeta.txHash || "pending").slice(0, 14)}...`,
+      `Anchor: ${(state.ogLastBackupMeta.anchorTxHash || "pending").slice(0, 14)}...`,
       rootHash ? `Root: ${rootHash.slice(0, 18)}...` : "Root hash pending.",
     ]);
     return true;
@@ -1960,7 +1969,7 @@ async function persistWalletInsightsTo0G(insights) {
   try {
     setOgStorageStatus("Storing wallet analysis on 0G...", "pending");
     const signer = await ensureOgStorageSigner();
-    const { rootHash, txHash } = await storeWalletAnalysisResults({
+    const { rootHash, txHash, anchorTxHash } = await storeWalletAnalysisResults({
       address: state.lastTracked.address,
       chain: state.lastTracked.chain,
       summary: state.trackedSummary,
@@ -1968,15 +1977,18 @@ async function persistWalletInsightsTo0G(insights) {
       insights,
       indexerRpc: CONFIG.ogIndexerRpc,
       evmRpc: CONFIG.ogEvmRpc,
+      proofAnchorAddress: CONFIG.ogProofAnchorContract,
       signer,
     });
 
     console.log("0G wallet analysis root hash:", rootHash);
     console.log("0G wallet analysis transaction hash:", txHash);
+    console.log("0G proof anchor transaction hash:", anchorTxHash);
 
     state.ogLastBackupMeta = {
       timestamp: Date.now(),
       txHash,
+      anchorTxHash,
       rootHash,
       reason: "wallet-analysis",
       address: state.lastTracked.address,

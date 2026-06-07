@@ -1,5 +1,7 @@
 import { Indexer, MemData } from "@0gfoundation/0g-storage-ts-sdk/browser";
 
+const DEFAULT_OG_PROOF_ANCHOR_CONTRACT = "0x61c60b1A07b55a23776dDe639933Aa01A5156c55";
+
 function normalizeStorageError(error) {
   return error?.shortMessage || error?.reason || error?.message || "0G storage failed.";
 }
@@ -120,11 +122,58 @@ async function storeJsonOn0G({ payload, indexerRpc, evmRpc, signer }) {
     throw new Error(normalizeStorageError(uploadError));
   }
 
-  return {
+  const result = {
     rootHash: uploadResult?.rootHash || tree?.rootHash?.() || "",
     txHash: uploadResult?.txHash || uploadResult?.hash || uploadResult?.transactionHash || "",
     tx: uploadResult,
   };
+
+  const anchorTxHash = await anchorStorageRootOn0G({
+    payloadType: payload?.type || "unknown",
+    rootHash: result.rootHash,
+    storageTxHash: result.txHash,
+    signer,
+    proofAnchorAddress: payload?.proofAnchorAddress || DEFAULT_OG_PROOF_ANCHOR_CONTRACT,
+  });
+
+  return {
+    ...result,
+    anchorTxHash,
+  };
+}
+
+async function anchorStorageRootOn0G({ payloadType, rootHash, storageTxHash, signer, proofAnchorAddress }) {
+  const anchorAddress = String(proofAnchorAddress || "").trim();
+  if (!anchorAddress) {
+    return "";
+  }
+
+  if (!/^0x[a-fA-F0-9]{40}$/.test(anchorAddress)) {
+    throw new Error(`Invalid 0G proof anchor contract address: ${anchorAddress}`);
+  }
+
+  const signerAddress = await signer.getAddress();
+  const metadata = {
+    project: "ZendraOG",
+    type: "0g-storage-root-anchor",
+    payloadType,
+    rootHash,
+    storageTxHash,
+    signer: signerAddress,
+    anchoredAt: new Date().toISOString(),
+  };
+  const anchorTx = await signer.sendTransaction({
+    to: anchorAddress,
+    value: 0n,
+    data: stringToHex(JSON.stringify(metadata)),
+  });
+  await anchorTx.wait();
+  return anchorTx.hash;
+}
+
+function stringToHex(value) {
+  const bytes = new TextEncoder().encode(value);
+  return `0x${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }
 
 export async function storeWalletAnalysisResults({
@@ -136,10 +185,12 @@ export async function storeWalletAnalysisResults({
   indexerRpc,
   evmRpc,
   signer,
+  proofAnchorAddress,
 }) {
   return storeJsonOn0G({
     payload: {
       type: "wallet-analysis",
+      proofAnchorAddress,
       storedAt: new Date().toISOString(),
       wallet: { address, chain },
       summary,
@@ -152,10 +203,11 @@ export async function storeWalletAnalysisResults({
   });
 }
 
-export async function storeDashboardSnapshot({ reason, storage, indexerRpc, evmRpc, signer }) {
+export async function storeDashboardSnapshot({ reason, storage, indexerRpc, evmRpc, signer, proofAnchorAddress }) {
   return storeJsonOn0G({
     payload: {
       type: "dashboard-snapshot",
+      proofAnchorAddress,
       storedAt: new Date().toISOString(),
       reason,
       storage,
@@ -166,10 +218,11 @@ export async function storeDashboardSnapshot({ reason, storage, indexerRpc, evmR
   });
 }
 
-export async function storeAiChatHistory({ sessionId, messages, metadata, indexerRpc, evmRpc, signer }) {
+export async function storeAiChatHistory({ sessionId, messages, metadata, indexerRpc, evmRpc, signer, proofAnchorAddress }) {
   return storeJsonOn0G({
     payload: {
       type: "ai-chat-history",
+      proofAnchorAddress,
       storedAt: new Date().toISOString(),
       sessionId,
       metadata: metadata || {},
@@ -181,10 +234,11 @@ export async function storeAiChatHistory({ sessionId, messages, metadata, indexe
   });
 }
 
-export async function storeTradeAnalysisLog({ log, indexerRpc, evmRpc, signer }) {
+export async function storeTradeAnalysisLog({ log, indexerRpc, evmRpc, signer, proofAnchorAddress }) {
   return storeJsonOn0G({
     payload: {
       type: "trade-analysis-log",
+      proofAnchorAddress,
       storedAt: new Date().toISOString(),
       log,
     },
@@ -194,10 +248,11 @@ export async function storeTradeAnalysisLog({ log, indexerRpc, evmRpc, signer })
   });
 }
 
-export async function storeStrategyMemory({ memory, indexerRpc, evmRpc, signer }) {
+export async function storeStrategyMemory({ memory, indexerRpc, evmRpc, signer, proofAnchorAddress }) {
   return storeJsonOn0G({
     payload: {
       type: "strategy-memory",
+      proofAnchorAddress,
       storedAt: new Date().toISOString(),
       memory,
     },
@@ -207,10 +262,11 @@ export async function storeStrategyMemory({ memory, indexerRpc, evmRpc, signer }
   });
 }
 
-export async function storeMarketSnapshot({ snapshot, indexerRpc, evmRpc, signer }) {
+export async function storeMarketSnapshot({ snapshot, indexerRpc, evmRpc, signer, proofAnchorAddress }) {
   return storeJsonOn0G({
     payload: {
       type: "market-snapshot",
+      proofAnchorAddress,
       storedAt: new Date().toISOString(),
       snapshot,
     },
@@ -220,10 +276,11 @@ export async function storeMarketSnapshot({ snapshot, indexerRpc, evmRpc, signer
   });
 }
 
-export async function storeUserPreferences({ preferences, indexerRpc, evmRpc, signer }) {
+export async function storeUserPreferences({ preferences, indexerRpc, evmRpc, signer, proofAnchorAddress }) {
   return storeJsonOn0G({
     payload: {
       type: "user-preferences",
+      proofAnchorAddress,
       storedAt: new Date().toISOString(),
       preferences,
     },
@@ -233,10 +290,11 @@ export async function storeUserPreferences({ preferences, indexerRpc, evmRpc, si
   });
 }
 
-export async function storeTradeJournal({ journal, indexerRpc, evmRpc, signer }) {
+export async function storeTradeJournal({ journal, indexerRpc, evmRpc, signer, proofAnchorAddress }) {
   return storeJsonOn0G({
     payload: {
       type: "trade-journal",
+      proofAnchorAddress,
       storedAt: new Date().toISOString(),
       journal,
     },
@@ -246,10 +304,11 @@ export async function storeTradeJournal({ journal, indexerRpc, evmRpc, signer })
   });
 }
 
-export async function storeAiContextMemory({ context, indexerRpc, evmRpc, signer }) {
+export async function storeAiContextMemory({ context, indexerRpc, evmRpc, signer, proofAnchorAddress }) {
   return storeJsonOn0G({
     payload: {
       type: "ai-context-memory",
+      proofAnchorAddress,
       storedAt: new Date().toISOString(),
       context,
     },
