@@ -290,6 +290,12 @@ The AI Trader UI surfaces these checks in its readiness, identity, provider, and
 - 0G Storage indexer RPC access
 - enough wallet balance for required transactions
 
+Storage Scan reviewer link:
+
+```text
+https://storagescan.0g.ai/address/0x6625FE0b675ab5e16e86ac3cd5043Fb25D87235C
+```
+
 ## Project Structure
 
 ```text
