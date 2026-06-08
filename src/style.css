@@ -346,6 +346,17 @@ video {
   background: rgba(0, 212, 255, 0.14);
 }
 
+.ai-wallet-picker {
+  position: relative;
+}
+
+.ai-wallet-menu {
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  min-width: 100%;
+}
+
 .hidden {
   display: none !important;
 }

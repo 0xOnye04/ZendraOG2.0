@@ -103,7 +103,7 @@ const state = {
 
 const discoveredEvmWallets = new Map();
 let eip6963Initialized = false;
-let traderWalletListenersBound = false;
+let traderWalletListenerProvider = null;
 
 const elements = {
   ogComputeRpcUrlInput: document.getElementById("ogComputeRpcUrlInput"),
@@ -128,12 +128,15 @@ const elements = {
   mentorProviderOutput: document.getElementById("mentorProviderOutput"),
   mentorStatus: document.getElementById("mentorStatus"),
   mentorWalletStatus: document.getElementById("mentorWalletStatus"),
+  traderWalletMenu: document.getElementById("traderWalletMenu"),
 };
 
 window.goToDashboard = () => {
   window.location.href = "/";
 };
 window.connectTraderWallet = () => connectTraderWallet();
+window.toggleTraderWalletMenu = () => toggleTraderWalletMenu();
+window.selectAndConnectTraderWallet = (walletKey) => selectAndConnectTraderWallet(walletKey);
 window.saveMentorSettings = () => saveMentorSettings();
 window.sendMentorPrompt = () => sendMentorPrompt();
 window.usePromptChip = (prompt) => usePromptChip(prompt);
@@ -155,6 +158,7 @@ function bootstrap() {
   enforceMainnetRuntimeConfig();
   initEip6963WalletDiscovery();
   hydrateState();
+  bindUiListeners();
   bindComposerShortcuts();
   renderTrackedContext();
   renderMessages();
@@ -169,6 +173,33 @@ function bootstrap() {
     console.error(error);
     setMentorStatus(normalizeError(error, "Unable to load 0G providers right now."), "error");
   });
+}
+
+function bindUiListeners() {
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    if (target.closest("#traderWalletMenu")) {
+      return;
+    }
+
+    if (target.closest('[onclick="toggleTraderWalletMenu()"]')) {
+      return;
+    }
+
+    closeTraderWalletMenu();
+  });
+}
+
+function toggleTraderWalletMenu() {
+  elements.traderWalletMenu?.classList.toggle("hidden");
+}
+
+function closeTraderWalletMenu() {
+  elements.traderWalletMenu?.classList.add("hidden");
 }
 
 function hydrateState() {
@@ -216,29 +247,34 @@ function saveMentorSettings() {
 }
 
 async function connectTraderWallet() {
-  const injectedProvider = findMetaMaskProvider() || getPrimaryInjectedProvider();
-  if (!injectedProvider) {
-    setMentorStatus("Install MetaMask or another EVM wallet before storing mentor data on 0G.", "error");
+  toggleTraderWalletMenu();
+}
+
+async function selectAndConnectTraderWallet(walletKey) {
+  closeTraderWalletMenu();
+  const walletDef = getTraderWalletDefinition(walletKey);
+  if (!walletDef?.provider) {
+    setMentorStatus(`Install or unlock ${walletDef?.label || "an EVM wallet"} before storing mentor data on 0G.`, "error");
     return;
   }
 
   try {
-    await ensureInjectedProviderOnOgMainnet(injectedProvider);
-    const provider = new BrowserProvider(injectedProvider);
+    await ensureInjectedProviderOnOgMainnet(walletDef.provider);
+    const provider = new BrowserProvider(walletDef.provider);
     await provider.send("eth_requestAccounts", []);
     const signer = await provider.getSigner();
-    const chainId = await readInjectedChainId(injectedProvider);
+    const chainId = await readInjectedChainId(walletDef.provider);
 
-    state.rawEvmProvider = injectedProvider;
+    state.rawEvmProvider = walletDef.provider;
     state.provider = provider;
     state.signer = signer;
     state.walletAddress = await signer.getAddress();
     state.walletChainId = chainId;
     state.computeBroker = await createOgComputeBroker(signer);
-    bindTraderWalletListeners(injectedProvider);
+    bindTraderWalletListeners(walletDef.provider);
     updateWalletStatus();
     renderIdentityPanel();
-    setMentorStatus(injectedProvider.isMetaMask ? "MetaMask connected." : "Trader wallet connected.", "success");
+    setMentorStatus(`${walletDef.label} connected.`, "success");
     await refreshProviders();
     await renderMentorReadiness();
   } catch (error) {
@@ -250,12 +286,27 @@ async function connectTraderWallet() {
   }
 }
 
+function getTraderWalletDefinition(walletKey) {
+  const providers = getInjectedEvmProviders();
+
+  if (walletKey === "metamask") {
+    return { key: walletKey, label: "MetaMask", provider: findMetaMaskProvider() };
+  }
+
+  if (walletKey === "rabby") {
+    const provider = getDiscoveredWalletByRdns("rabby") || providers.find((item) => item?.isRabby) || null;
+    return { key: walletKey, label: "Rabby", provider };
+  }
+
+  return { key: "injected", label: "Injected EVM", provider: getPrimaryInjectedProvider() };
+}
+
 function bindTraderWalletListeners(provider) {
-  if (!provider || traderWalletListenersBound) {
+  if (!provider || traderWalletListenerProvider === provider) {
     return;
   }
 
-  traderWalletListenersBound = true;
+  traderWalletListenerProvider = provider;
   provider.on?.("chainChanged", async (chainId) => {
     const parsedChainId = parseChainId(chainId);
     if (!OG_MAINNET_CHAIN_IDS.has(parsedChainId)) {
@@ -338,7 +389,7 @@ async function waitForInjectedChainId(provider, expectedChainId) {
   }
 
   const chainId = await readInjectedChainId(provider);
-  throw new Error(`MetaMask is still on chain ${chainId}. Remove the old 0G Galileo network and switch to 0G Mainnet 16661.`);
+  throw new Error(`The selected wallet is still on chain ${chainId}. Remove the old 0G Galileo network and switch to 0G Mainnet 16661.`);
 }
 
 function enforceMainnetRuntimeConfig() {
@@ -711,7 +762,7 @@ async function requireStorageSigner() {
 
 async function switchTraderWalletToOgMainnet() {
   if (!state.rawEvmProvider || !state.provider) {
-    setMentorStatus("Connect MetaMask before switching to 0G Mainnet.", "error");
+    setMentorStatus("Connect a trader wallet before switching to 0G Mainnet.", "error");
     return false;
   }
 
@@ -823,7 +874,7 @@ async function assessMentorReadiness() {
   lines.push(`Model selection: ${config.model || "provider default"}`);
 
   if (!state.walletAddress || !state.signer) {
-    issues.push("Connect MetaMask before using the AI mentor. Direct 0G Compute signs each request with your wallet.");
+    issues.push("Connect a trader wallet before using the AI mentor. Direct 0G Compute signs each request with your wallet.");
   } else {
     const chainLabel = OG_MAINNET_CHAIN_IDS.has(state.walletChainId) ? "0G Mainnet" : "wrong network";
     lines.push(`Wallet connected: ${shortenAddress(state.walletAddress)} on ${chainLabel}`);
@@ -953,7 +1004,7 @@ async function refreshProviders() {
 
 async function fundSelectedComputeProvider() {
   if (!state.signer || !state.walletAddress) {
-    setMentorStatus("Connect MetaMask before funding 0G Compute.", "error");
+    setMentorStatus("Connect a trader wallet before funding 0G Compute.", "error");
     return;
   }
 

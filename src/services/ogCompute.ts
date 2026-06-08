@@ -220,35 +220,67 @@ export async function runOgDirectChatCompletion({
   verifyResponse?: boolean;
   signal?: AbortSignal;
 }) {
-  const broker = await createOgComputeBroker(signer);
-  const provider = await resolveOgChatProvider({
+  let broker = await createOgComputeBroker(signer);
+  let provider = await resolveOgChatProvider({
     signer,
     preferredProviderAddress,
   });
 
   const configuredModel = preferredModel || getOgComputeConfig().model || "";
-  const supportedModel = provider.model || "";
-  const finalModel = configuredModel && configuredModel === supportedModel
-    ? configuredModel
-    : supportedModel || configuredModel;
+  let finalModel = chooseOgModel(configuredModel, provider.model || "");
   const contentForBilling = JSON.stringify(messages);
-  const headers = await broker.inference.getRequestHeaders(provider.providerAddress, contentForBilling);
 
-  const response = await fetch(`${String(provider.endpoint).replace(/\/+$/, "")}/chat/completions`, {
-    method: "POST",
+  let headers = await broker.inference.getRequestHeaders(provider.providerAddress, contentForBilling);
+  let response = await sendProviderChatRequest({
+    endpoint: provider.endpoint,
+    model: finalModel,
+    messages,
+    headers,
     signal,
-    headers: {
-      "Content-Type": "application/json",
-      ...headers,
-    },
-    body: JSON.stringify({
-      model: finalModel,
-      messages,
-    }),
   });
 
   if (!response.ok) {
-    throw await buildProviderError(response, "0G provider chat request failed");
+    const errorText = await readResponseText(response);
+    if (isExpiredSessionError(response, errorText)) {
+      broker = await createOgComputeBroker(signer);
+      headers = await broker.inference.getRequestHeaders(provider.providerAddress, contentForBilling);
+      response = await sendProviderChatRequest({
+        endpoint: provider.endpoint,
+        model: finalModel,
+        messages,
+        headers,
+        signal,
+      });
+
+      if (!response.ok) {
+        const refreshedErrorText = await readResponseText(response);
+        if (isExpiredSessionError(response, refreshedErrorText)) {
+          provider = await resolveAlternativeOgChatProvider({
+            signer,
+            excludedProviderAddresses: [provider.providerAddress],
+          });
+          finalModel = chooseOgModel(configuredModel, provider.model || "");
+          broker = await createOgComputeBroker(signer);
+          headers = await broker.inference.getRequestHeaders(provider.providerAddress, contentForBilling);
+          response = await sendProviderChatRequest({
+            endpoint: provider.endpoint,
+            model: finalModel,
+            messages,
+            headers,
+            signal,
+          });
+
+          if (!response.ok) {
+            const fallbackErrorText = await readResponseText(response);
+            throw buildProviderErrorFromText(response, fallbackErrorText, "0G provider chat request failed after trying another provider");
+          }
+        } else {
+          throw buildProviderErrorFromText(response, refreshedErrorText, "0G provider chat request failed after refreshing the 0G session");
+        }
+      }
+    } else {
+      throw buildProviderErrorFromText(response, errorText, "0G provider chat request failed");
+    }
   }
 
   const payload = await response.json();
@@ -275,6 +307,71 @@ export async function runOgDirectChatCompletion({
     chatId,
     verification,
   };
+}
+
+function chooseOgModel(configuredModel: string, supportedModel: string) {
+  return configuredModel && configuredModel === supportedModel
+    ? configuredModel
+    : supportedModel || configuredModel;
+}
+
+async function resolveAlternativeOgChatProvider({
+  signer,
+  excludedProviderAddresses,
+}: {
+  signer: any;
+  excludedProviderAddresses: string[];
+}) {
+  const excluded = new Set((excludedProviderAddresses || []).map((address) => String(address || "").toLowerCase()));
+  const services = (await listOgComputeProviders())
+    .filter((service: any) => !excluded.has(String(service.provider || "").toLowerCase()));
+
+  if (!services.length) {
+    throw new Error("The selected 0G provider session expired and no alternative chatbot provider is currently available. Clear Preferred Provider, refresh providers, and try again.");
+  }
+
+  const selected = services.find((service: any) => service.healthMetrics?.status === "healthy") || services[0];
+  const providerAddress = selected.provider;
+  const metadataBroker = await createOgComputeBroker(signer);
+  const { endpoint, model } = await metadataBroker.inference.getServiceMetadata(providerAddress);
+
+  return {
+    providerAddress,
+    endpoint,
+    model,
+    service: selected,
+  };
+}
+
+async function sendProviderChatRequest({
+  endpoint,
+  model,
+  messages,
+  headers,
+  signal,
+}: {
+  endpoint: string;
+  model: string;
+  messages: ChatMessage[];
+  headers: Record<string, string>;
+  signal?: AbortSignal;
+}) {
+  return fetch(`${String(endpoint).replace(/\/+$/, "")}/chat/completions`, {
+    method: "POST",
+    signal,
+    headers: {
+      "Content-Type": "application/json",
+      ...headers,
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+    }),
+  });
+}
+
+function isExpiredSessionError(response: Response, text: string) {
+  return response.status === 400 && /session token expired/i.test(text || "");
 }
 
 export async function fundOgComputeProvider({
@@ -320,12 +417,18 @@ function toNeuron(amount: number) {
 }
 
 async function buildProviderError(response: Response, fallbackMessage: string) {
-  let details = "";
-  try {
-    details = (await response.text()).trim();
-  } catch {
-    details = "";
-  }
+  const details = await readResponseText(response);
+  return buildProviderErrorFromText(response, details, fallbackMessage);
+}
 
+async function readResponseText(response: Response) {
+  try {
+    return (await response.text()).trim();
+  } catch {
+    return "";
+  }
+}
+
+function buildProviderErrorFromText(response: Response, details: string, fallbackMessage: string) {
   return new Error(details ? `${fallbackMessage} (${response.status}): ${details.slice(0, 220)}` : `${fallbackMessage} (${response.status}).`);
 }

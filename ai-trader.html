@@ -19,7 +19,14 @@
 
         <nav class="nav-menu">
           <button type="button" onclick="goToDashboard()">Back To Dashboard</button>
-          <button type="button" onclick="connectTraderWallet()">Connect Trader Wallet</button>
+          <div class="ai-wallet-picker">
+            <button type="button" onclick="toggleTraderWalletMenu()">Connect Trader Wallet</button>
+            <div id="traderWalletMenu" class="wallet-menu ai-wallet-menu hidden">
+              <button type="button" onclick="selectAndConnectTraderWallet('metamask')">MetaMask</button>
+              <button type="button" onclick="selectAndConnectTraderWallet('rabby')">Rabby</button>
+              <button type="button" onclick="selectAndConnectTraderWallet('injected')">Injected EVM</button>
+            </div>
+          </div>
           <button type="button" onclick="openMentorOnboarding()">How It Works</button>
           <button type="button" onclick="savePreferencesTo0G()">Save Preferences</button>
           <button type="button" onclick="saveStrategyTo0G()">Save Strategy</button>
